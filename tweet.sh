@@ -61,6 +61,7 @@ function HTTP_pencode {
 }
 
 function OAuth_generate {
+  typeset realm="$1"; shift
   typeset consumer_key="$1"; shift
   typeset consumer_secret="$1"; shift
   typeset access_token="$1"; shift
@@ -124,7 +125,7 @@ function OAuth_generate {
     echo 'Content-Type: application/x-www-form-urlencoded'
   fi
 
-  echo 'Authorization: OAuth realm="http://api.twitter.com",'
+  echo Authorization: OAuth realm=$realm,
   typeset pv
   for pv in "${oauth[@]}"; do
     echo " $pv,"
@@ -146,6 +147,7 @@ function Tweet_tweet {
   set -- "status=$(HTTP_pencode "$script")"
 
   OAuth_generate \
+    'http://api.twitter.com' \
     "$oauth_consumer_key" \
     "$oauth_consumer_secret" \
     "$oauth_access_token" \
