@@ -86,6 +86,38 @@ function OAuth_generate {
   url_tmp="${url_tmp%%/*}"
   typeset url_host="${url_tmp%%:*}"
 
+  typeset oauth_signature=$(
+    {
+      echo -n "$method&"
+      HTTP_pencode "$url"
+      echo -n '&'
+
+      for pv in "$@" "${oauth[@]}"; do
+	echo "$(HTTP_pencode "${pv%%=*}") $(HTTP_pencode "${pv#*=}")"
+      done \
+      |sort \
+      |sed 's/ /%3D/;s/$/%26/' \
+      |tr -d '\n' \
+      |sed 's/%26$//' \
+      ;
+    } \
+    |openssl sha1 -hmac "$hmac_key" -binary \
+    |openssl base64 \
+    |HTTP_pencode \
+    ;
+  )
+
+  typeset query=
+  while [[ $# -gt 0 ]]; do
+    query+="$1"
+    [[ $# -gt 1 ]] && query+='&'
+    shift
+  done
+  if [[ $method != 'POST' ]]; then
+    url="$url?$query"
+    query=''
+  fi
+
   echo "$method $url_path HTTP/1.1"
   echo "Host: $url_host"
   if [[ $method == 'POST' ]]; then
@@ -97,27 +129,15 @@ function OAuth_generate {
   for pv in "${oauth[@]}"; do
     echo " $pv,"
   done
-  echo -n ' oauth_signature='
+  echo " oauth_signature=$oauth_signature"
+  echo "Connection: close"
 
-  {
-    echo -n "$method&"
-    HTTP_pencode "$url"
-    echo -n '&'
-
-    for pv in "$@" "${oauth[@]}"; do
-      echo "$(HTTP_pencode "${pv%%=*}") $(HTTP_pencode "${pv#*=}")"
-    done \
-    |sort \
-    |sed 's/ /%3D/;s/$/%26/' \
-    |tr -d '\n' \
-    |sed 's/%26$//' \
-    ;
-  } \
-  |openssl sha1 -hmac "$hmac_key" -binary \
-  |openssl base64 \
-  |HTTP_pencode \
-  ;
+  typeset LC_ALL='C'
+  echo "Content-Length: ${#query}"
   echo
+  if [[ -n $query ]]; then
+    echo -n "$query"
+  fi
 }
 
 function Tweet_tweet {
@@ -134,19 +154,6 @@ function Tweet_tweet {
     "https://api.twitter.com/1.1/statuses/update.json" \
     "$@" \
     ;
-
-  typeset body
-  while [[ $# -gt 0 ]]; do
-    body+="$1"
-    [[ $# -gt 1 ]] && body+='&'
-    shift
-  done
-
-  typeset LC_ALL='C'
-  echo "Content-Length: ${#body}"
-  echo "Connection: close"
-  echo
-  echo -n "$body"
 }
 
 if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
@@ -156,6 +163,7 @@ if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; th
   fi
   . "${TWEET_SH_CONF-$HOME/.tweet.conf}"
   Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect api.twitter.com:443
+  ## FIXME: Parse reply from Twitter.com
   exit $?
 fi
 
