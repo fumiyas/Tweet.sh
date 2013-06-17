@@ -163,7 +163,7 @@ if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; th
     echo "Usage: $0 SCRIPT"
     exit 0
   fi
-  . "${TWEET_SH_CONF-$HOME/.tweet.conf}"
+  . "${TWEET_CONF-$HOME/.tweet.conf}" || exit 1
   Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect api.twitter.com:443
   ## FIXME: Parse reply from Twitter.com
   exit $?
