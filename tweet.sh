@@ -16,23 +16,6 @@
 
 set -u
 
-function OAuth_nonce {
-  printf '%04x%04x%04x%04x%04x%04x%04x%04x' \
-    $RANDOM \
-    $RANDOM \
-    $RANDOM \
-    $RANDOM \
-    $RANDOM \
-    $RANDOM \
-    $RANDOM \
-    $RANDOM \
-    ;
-}
-
-function OAuth_time {
-  date +%s
-}
-
 function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
     typeset in="${1-}"; shift
@@ -60,6 +43,23 @@ function HTTP_pencode {
   echo -n "$out"
 }
 
+function OAuth_nonce {
+  printf '%04x%04x%04x%04x%04x%04x%04x%04x' \
+    $RANDOM \
+    $RANDOM \
+    $RANDOM \
+    $RANDOM \
+    $RANDOM \
+    $RANDOM \
+    $RANDOM \
+    $RANDOM \
+    ;
+}
+
+function OAuth_timestamp {
+  date +%s
+}
+
 function OAuth_generate {
   typeset realm="$1"; shift
   typeset consumer_key="$1"; shift
@@ -76,7 +76,7 @@ function OAuth_generate {
     "oauth_signature_method=HMAC-SHA1"
     "oauth_version=1.0"
     "oauth_nonce=$(OAuth_nonce)"
-    "oauth_timestamp=$(OAuth_time)"
+    "oauth_timestamp=$(OAuth_timestamp)"
     "oauth_token=$access_token"
   )
 
@@ -148,8 +148,6 @@ function Tweet_tweet {
     return 1
   fi
 
-  set -- "status=$(HTTP_pencode "$script")"
-
   OAuth_generate \
     'http://api.twitter.com' \
     "$oauth_consumer_key" \
@@ -158,7 +156,7 @@ function Tweet_tweet {
     "$oauth_access_token_secret" \
     "POST" \
     "https://api.twitter.com/1.1/statuses/update.json" \
-    "$@" \
+    "status=$(HTTP_pencode "$script")" \
     ;
 }
 
