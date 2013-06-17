@@ -144,6 +144,11 @@ function OAuth_generate {
 function Tweet_tweet {
   typeset script="$1"; shift
 
+  if [[ ${#script} -gt 140 ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
+
   set -- "status=$(HTTP_pencode "$script")"
 
   OAuth_generate \
