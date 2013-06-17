@@ -1,4 +1,18 @@
 #!/bin/bash
+## vim:tabstop=8:shiftwidth=2
+##
+## Twitter client implemented in bash/ksh/zsh with openssl(1)
+## Copyright (C) 2013 SATOH Fumiyasu @ OSS Technology Corp., Japan
+##               <https://GitHub.com/fumiyas/Tweet.sh>
+##               <https://Twitter.com/satoh_fumiyasu>
+##               <http://www.OSSTech.co.jp/>
+##
+## License: GNU General Public License version 3
+##
+## Requirements:
+##   * bash(1), ksh(1) or zsh(1)
+##   * openssl(1)
+##
 
 set -u
 
