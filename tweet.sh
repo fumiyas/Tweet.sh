@@ -87,21 +87,22 @@ function OAuth_generate {
   url_tmp="${url_tmp%%/*}"
   typeset url_host="${url_tmp%%:*}"
 
-  typeset oauth_signature=$(
-    {
-      echo -n "$method&"
-      HTTP_pencode "$url"
-      echo -n '&'
+  typeset oauth_string=$(
+    echo -n "$method&"
+    HTTP_pencode "$url"
+    echo -n '&'
 
-      for pv in "$@" "${oauth[@]}"; do
-	echo "$(HTTP_pencode "${pv%%=*}") $(HTTP_pencode "${pv#*=}")"
-      done \
-      |sort \
-      |sed 's/ /%3D/;s/$/%26/' \
-      |tr -d '\n' \
-      |sed 's/%26$//' \
-      ;
-    } \
+    for pv in "$@" "${oauth[@]}"; do
+      echo "$(HTTP_pencode "${pv%%=*}") $(HTTP_pencode "${pv#*=}")"
+    done \
+    |sort \
+    |sed 's/ /%3D/;s/$/%26/' \
+    |tr -d '\n' \
+    |sed 's/%26$//' \
+    ;
+  )
+  typeset oauth_signature=$(
+    echo -n "$oauth_string" \
     |openssl sha1 -hmac "$hmac_key" -binary \
     |openssl base64 \
     |HTTP_pencode \
@@ -136,9 +137,7 @@ function OAuth_generate {
   typeset LC_ALL='C'
   echo "Content-Length: ${#query}"
   echo
-  if [[ -n $query ]]; then
-    echo -n "$query"
-  fi
+  echo -n "$query"
 }
 
 function Tweet_tweet {
