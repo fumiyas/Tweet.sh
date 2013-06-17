@@ -16,7 +16,7 @@
 
 set -u
 
-function __generate_nonce {
+function OAuth_nonce {
   printf '%04x%04x%04x%04x%04x%04x%04x%04x' \
     $RANDOM \
     $RANDOM \
@@ -29,11 +29,11 @@ function __generate_nonce {
     ;
 }
 
-function __time {
+function OAuth_time {
   date +%s
 }
 
-function __pencode {
+function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
     typeset in="${1-}"; shift
   else
@@ -60,7 +60,7 @@ function __pencode {
   echo -n "$out"
 }
 
-function __hash {
+function OAuth_generate {
   typeset consumer_key="$1"; shift
   typeset consumer_secret="$1"; shift
   typeset access_token="$1"; shift
@@ -74,8 +74,8 @@ function __hash {
     "oauth_consumer_key=$consumer_key"
     "oauth_signature_method=HMAC-SHA1"
     "oauth_version=1.0"
-    "oauth_nonce=$(__generate_nonce)"
-    "oauth_timestamp=$(__time)"
+    "oauth_nonce=$(OAuth_nonce)"
+    "oauth_timestamp=$(OAuth_time)"
     "oauth_token=$access_token"
   )
 
@@ -101,11 +101,11 @@ function __hash {
 
   {
     echo -n "$method&"
-    __pencode "$url"
+    HTTP_pencode "$url"
     echo -n '&'
 
     for pv in "$@" "${oauth[@]}"; do
-      echo "$(__pencode "${pv%%=*}") $(__pencode "${pv#*=}")"
+      echo "$(HTTP_pencode "${pv%%=*}") $(HTTP_pencode "${pv#*=}")"
     done \
     |sort \
     |sed 's/ /%3D/;s/$/%26/' \
@@ -115,17 +115,17 @@ function __hash {
   } \
   |openssl sha1 -hmac "$hmac_key" -binary \
   |openssl base64 \
-  |__pencode \
+  |HTTP_pencode \
   ;
   echo
 }
 
-function __tweet {
+function Tweet_tweet {
   typeset script="$1"; shift
 
-  set -- "status=$(__pencode "$script")"
+  set -- "status=$(HTTP_pencode "$script")"
 
-  __hash \
+  OAuth_generate \
     "$oauth_consumer_key" \
     "$oauth_consumer_secret" \
     "$oauth_access_token" \
@@ -155,7 +155,7 @@ if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; th
     exit 0
   fi
   . "${TWEET_SH_CONF-$HOME/.tweet.conf}"
-  __tweet "$@" |openssl s_client -crlf -quiet -connect api.twitter.com:443
+  Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect api.twitter.com:443
   exit $?
 fi
 
