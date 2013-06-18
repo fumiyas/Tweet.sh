@@ -16,6 +16,16 @@
 
 set -u
 
+if [[ -n ${ZSH_VERSION-} ]]; then
+  setopt BSD_ECHO
+elif [[ -n ${BASH_VERSION-} ]]; then
+  shopt -u xpg_echo
+else ## ksh
+  if [[ $(echo -n) == -n ]]; then
+    alias echo='print -r'
+  fi
+fi
+
 function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
     typeset in="${1-}"; shift
