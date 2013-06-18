@@ -26,6 +26,10 @@ else ## ksh
   fi
 fi
 
+Tweet_api_host="api.twitter.com"
+Tweet_api_port="443"
+Tweet_api_url="https://$Tweet_api_host/1.1"
+
 function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
     typeset in="${1-}"; shift
@@ -159,13 +163,13 @@ function Tweet_tweet {
   fi
 
   OAuth_generate \
-    'http://api.twitter.com' \
+    "$Tweet_api_url" \
     "$oauth_consumer_key" \
     "$oauth_consumer_secret" \
     "$oauth_access_token" \
     "$oauth_access_token_secret" \
     "POST" \
-    "https://api.twitter.com/1.1/statuses/update.json" \
+    "$Tweet_api_url/statuses/update.json" \
     "status=$(HTTP_pencode "$script")" \
     ;
 }
@@ -176,7 +180,7 @@ if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; th
     exit 0
   fi
   . "${TWEET_CONF-$HOME/.tweet.conf}" || exit 1
-  Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect api.twitter.com:443
+  Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect "$Tweet_api_host:$Tweet_api_port"
   ## FIXME: Parse reply from Twitter.com
   exit $?
 fi
