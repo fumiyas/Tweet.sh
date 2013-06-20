@@ -29,6 +29,8 @@ fi
 Tweet_api_host="api.twitter.com"
 Tweet_api_port="443"
 Tweet_api_url="https://$Tweet_api_host/1.1"
+Tweet_oauth_consumer_key='RSwbFF0fObZEJMoZLK51w'
+Tweet_oauth_consumer_secret='1oxAO6md2ls4FSXhHBnosMD8crNyYZgdzUHlZvNlaU'
 
 function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
@@ -164,10 +166,10 @@ function Tweet_tweet {
 
   OAuth_generate \
     "$Tweet_api_url" \
-    "$oauth_consumer_key" \
-    "$oauth_consumer_secret" \
-    "$oauth_access_token" \
-    "$oauth_access_token_secret" \
+    "$Tweet_oauth_consumer_key" \
+    "$Tweet_oauth_consumer_secret" \
+    "$Tweet_oauth_access_token" \
+    "$Tweet_oauth_access_token_secret" \
     "POST" \
     "$Tweet_api_url/statuses/update.json" \
     "status=$(HTTP_pencode "$script")" \
@@ -179,7 +181,21 @@ if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; th
     echo "Usage: $0 SCRIPT"
     exit 0
   fi
+
   . "${TWEET_CONF-$HOME/.tweet.conf}" || exit 1
+  if [[ -n $oauth_consumer_key ]]; then
+    Tweet_oauth_consumer_key="$oauth_consumer_key"
+  fi
+  if [[ -n $oauth_consumer_secret ]]; then
+    Tweet_oauth_consumer_secret="$oauth_consumer_secret"
+  fi
+  if [[ -n $oauth_access_token ]]; then
+    Tweet_oauth_access_token="$oauth_access_token"
+  fi
+  if [[ -n $oauth_access_token_secret ]]; then
+    Tweet_oauth_access_token_secret="$oauth_access_token_secret"
+  fi
+
   Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect "$Tweet_api_host:$Tweet_api_port"
   ## FIXME: Parse reply from Twitter.com
   exit $?
