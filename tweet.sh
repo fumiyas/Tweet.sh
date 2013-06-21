@@ -26,11 +26,73 @@ else ## ksh
   fi
 fi
 
+Tweet_conf_file="${TWEET_CONF-$HOME/.tweet.conf}"
 Tweet_api_host="api.twitter.com"
 Tweet_api_port="443"
 Tweet_api_url="https://$Tweet_api_host/1.1"
+Tweet_api_url_request_token="https://$Tweet_api_host/oauth/request_token"
+Tweet_api_url_authorize_token="https://$Tweet_api_host/oauth/authorize"
+Tweet_api_url_access_token="https://$Tweet_api_host/oauth/access_token"
 Tweet_oauth_consumer_key='RSwbFF0fObZEJMoZLK51w'
 Tweet_oauth_consumer_secret='1oxAO6md2ls4FSXhHBnosMD8crNyYZgdzUHlZvNlaU'
+Tweet_oauth_access_token=''
+Tweet_oauth_access_token_secret=''
+Tweet_c_cr="
+"
+
+function HTTP_browser {
+  typeset url="$1"; shift
+  typeset open=
+
+  case $(uname) in
+  Darwin)
+    open="open"
+    ;;
+  CYGWIN_*)
+    open="cygstart"
+    ;;
+  *)
+    if [[ -f /etc/debian_version ]]; then
+      open="sensible-browser"
+    elif type xdg-open >/dev/null 2>&1; then
+      open="xdg-open"
+    elif [[ ${XDG_CURRENT_DESKTOP-} == GNOME || -n ${GNOME_DESKTOP_SESSION_ID-} ]] ; then
+      open="gnome-open"
+    elif [[ ${XDG_CURRENT_DESKTOP-} == KDE || ${KDE_FULL_SESSION-} == true ]] ; then
+      open="kde-open"
+    else
+      typeset browsers="${BROWSER-}"
+      if [[ -z $browsers ]]; then
+	browsers="www-browser:links2:elinks:links:lynx:w3m"
+	if [[ -n ${DISPLAY-} ]]; then
+	  browsers="x-www-browser:firefox:seamonkey:mozilla:epiphany:konqueror:chromium-browser:google-chrome:$browsers"
+	fi
+      fi
+
+      typeset ifs_save="$IFS"
+      typeset found=
+      IFS=:
+      for open in $browsers; do
+	if type "$open" >/dev/null 2>&1; then
+	  found=set
+	  break
+	fi
+      done
+      IFS="$ifs_save"
+
+      if [[ -z $found ]]; then
+	## FIXME: Print error message
+	return 1
+      fi
+    fi
+    ;;
+  esac
+
+  "$open" "$url"
+
+  return $?
+}
+
 
 function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
@@ -59,6 +121,67 @@ function HTTP_pencode {
   echo -n "$out"
 }
 
+function HTTP_pdecode {
+  typeset in="${1//\\/\\\\}"; shift
+
+  printf "${in//\%/\\x}"
+}
+
+function HTTP_request {
+  typeset line
+  typeset -l line_lower
+  typeset rcode= rmessage= content_type= body=
+
+  {
+    while IFS= read -r line; do
+      line="${line%}"
+      [[ -z $line ]] && break
+      line_lower="$line"
+      case "$line_lower" in
+      status:*)
+	line="${line#*: }"
+	rcode="${line%% *}"
+	rmessage="${line#* }"
+	;;
+      content-type:*)
+	content_type="${line#*: }"
+	;;
+      esac
+    done
+    while IFS= read -r line; do
+      body+="$line$Tweet_c_cr"
+    done
+    body+="$line"
+  } < <(
+    openssl s_client \
+      -crlf \
+      -quiet \
+      -connect "$Tweet_api_host:$Tweet_api_port" \
+      ;
+  )
+
+  echo "$rcode"
+  echo "$rmessage"
+  echo "$content_type"
+  echo -n "$body"
+}
+
+function HTTP_response_extract {
+  typeset response="$1"; shift
+  typeset name="$1"; shift
+  typeset value=
+
+  value="${response#*\&$name=}"
+  value="${value#$name=}"
+  if [[ $value == $response ]]; then
+    return 1
+  fi
+  value="${value%%\&*}"
+
+  echo -n "$value"
+  return 0
+}
+
 function OAuth_nonce {
   printf '%04x%04x%04x%04x%04x%04x%04x%04x' \
     $RANDOM \
@@ -80,12 +203,13 @@ function OAuth_generate {
   typeset realm="$1"; shift
   typeset consumer_key="$1"; shift
   typeset consumer_secret="$1"; shift
-  typeset access_token="$1"; shift
-  typeset access_token_secret="$1"; shift
+  typeset token="$1"; shift
+  typeset token_secret="$1"; shift
+  typeset callback="$1"; shift
   typeset method="$1"; shift
   typeset url="$1"; shift
 
-  typeset hmac_key="$consumer_secret&$access_token_secret"
+  typeset hmac_key="$consumer_secret&$token_secret"
   typeset -a oauth
   oauth=(
     "oauth_consumer_key=$consumer_key"
@@ -93,7 +217,8 @@ function OAuth_generate {
     "oauth_version=1.0"
     "oauth_nonce=$(OAuth_nonce)"
     "oauth_timestamp=$(OAuth_timestamp)"
-    "oauth_token=$access_token"
+    ${token:+"oauth_token=$token"}
+    ${callback:+"oauth_callback=$callback"}
   )
 
   typeset url_tmp
@@ -142,7 +267,7 @@ function OAuth_generate {
     echo 'Content-Type: application/x-www-form-urlencoded'
   fi
 
-  echo Authorization: OAuth realm=$realm,
+  echo Authorization: OAuth${realm:+ realm=$realm,}
   typeset pv
   for pv in "${oauth[@]}"; do
     echo " $pv,"
@@ -154,6 +279,92 @@ function OAuth_generate {
   echo "Content-Length: ${#query}"
   echo
   echo -n "$query"
+}
+
+function Tweet_init {
+  :
+}
+
+function Tweet_authorize {
+  if [[ -n $Tweet_oauth_access_token && -n $Tweet_oauth_access_token_secret ]]; then
+    return 0
+  fi
+
+  typeset rcode= rmessage= content_type= body=
+
+  echo "No OAuth access token and/or secret for Twitter access configured."
+  echo "I'll open Twitter site by a WWW browser to get OAuth access token"
+  echo "and secret. Please authorize this application on Twitter site!!"
+  echo
+  echo "Press Enter key to open Twitter site..."
+  read
+
+  {
+    IFS= read -r rcode
+    IFS= read -r rmessage
+    IFS= read -r content_type
+    IFS= read -r body
+  } < <(
+    OAuth_generate \
+      "$Tweet_api_url" \
+      "$Tweet_oauth_consumer_key" \
+      "$Tweet_oauth_consumer_secret" \
+      '' \
+      '' \
+      '' \
+      "POST" \
+      "$Tweet_api_url_request_token" \
+    |HTTP_request \
+  )
+  if [[ $rcode != 200 ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
+
+  typeset oauth_token=$(HTTP_response_extract "$body" oauth_token)
+  typeset oauth_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
+
+  HTTP_browser "$Tweet_api_url_authorize_token?oauth_token=$oauth_token"
+
+  echo -n 'Enter PIN: '
+  typeset pin=
+  read -r pin
+
+  {
+    IFS= read -r rcode
+    IFS= read -r rmessage
+    IFS= read -r content_type
+    IFS= read -r body
+  } < <(
+    OAuth_generate \
+      "$Tweet_api_url" \
+      "$Tweet_oauth_consumer_key" \
+      "$Tweet_oauth_consumer_secret" \
+      "$oauth_token" \
+      "$oauth_token_secret" \
+      '' \
+      "POST" \
+      "$Tweet_api_url_access_token" \
+      "oauth_verifier=$pin" \
+    |HTTP_request \
+  )
+  if [[ $rcode != 200 ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
+
+  Tweet_oauth_access_token=$(HTTP_response_extract "$body" oauth_token)
+  Tweet_oauth_access_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
+
+  if [[ ! -f "$Tweet_conf_file" ]]; then
+    (umask 0077; touch "$Tweet_conf_file") || return 1
+    echo "oauth_consumer_key='$Tweet_oauth_consumer_key'" >>"$Tweet_conf_file"
+    echo "oauth_consumer_secret='$Tweet_oauth_consumer_secret'" >>"$Tweet_conf_file"
+  fi
+  echo "oauth_access_token='$Tweet_oauth_access_token'" >>"$Tweet_conf_file"
+  echo "oauth_access_token_secret='$Tweet_oauth_access_token_secret'" >>"$Tweet_conf_file"
+
+  return 0
 }
 
 function Tweet_tweet {
@@ -170,34 +381,45 @@ function Tweet_tweet {
     "$Tweet_oauth_consumer_secret" \
     "$Tweet_oauth_access_token" \
     "$Tweet_oauth_access_token_secret" \
+    '' \
     "POST" \
     "$Tweet_api_url/statuses/update.json" \
     "status=$(HTTP_pencode "$script")" \
     ;
 }
 
-if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
+function Tweet_command_help {
   if [[ $# -ne 1 ]]; then
     echo "Usage: $0 SCRIPT"
     exit 0
   fi
+}
 
-  . "${TWEET_CONF-$HOME/.tweet.conf}" || exit 1
-  if [[ -n $oauth_consumer_key ]]; then
+function Tweet_command {
+  . "$Tweet_conf_file" || exit 1
+
+  if [[ -n ${oauth_consumer_key-} ]]; then
     Tweet_oauth_consumer_key="$oauth_consumer_key"
   fi
-  if [[ -n $oauth_consumer_secret ]]; then
+  if [[ -n ${oauth_consumer_secret-} ]]; then
     Tweet_oauth_consumer_secret="$oauth_consumer_secret"
   fi
-  if [[ -n $oauth_access_token ]]; then
+  if [[ -n ${oauth_access_token-} ]]; then
     Tweet_oauth_access_token="$oauth_access_token"
   fi
-  if [[ -n $oauth_access_token_secret ]]; then
+  if [[ -n ${oauth_access_token_secret-} ]]; then
     Tweet_oauth_access_token_secret="$oauth_access_token_secret"
   fi
 
+  Tweet_authorize
   Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect "$Tweet_api_host:$Tweet_api_port"
   ## FIXME: Parse reply from Twitter.com
+  return $?
+}
+
+if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
+  Tweet_init
+  Tweet_command "$@"
   exit $?
 fi
 
