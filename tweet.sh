@@ -130,19 +130,23 @@ function HTTP_pdecode {
 function HTTP_request {
   typeset line
   typeset -l line_lower
-  typeset rcode= rmessage= content_type= body=
+  typeset cert_status= http_ver= rcode= rmessage= content_type= body=
 
   {
+    while IFS= read -r line; do
+      line="${line%}"
+      if [[ $line == 'verify return:0' ]]; then
+	cert_status='verified'
+	break
+      fi
+    done
+
+    read -r http_ver rcode rmessage
     while IFS= read -r line; do
       line="${line%}"
       [[ -z $line ]] && break
       line_lower="$line"
       case "$line_lower" in
-      status:*)
-	line="${line#*: }"
-	rcode="${line%% *}"
-	rmessage="${line#* }"
-	;;
       content-type:*)
 	content_type="${line#*: }"
 	;;
@@ -157,9 +161,11 @@ function HTTP_request {
       -crlf \
       -quiet \
       -connect "$Tweet_api_host:$Tweet_api_port" \
+      2>&1 \
       ;
   )
 
+  echo "$cert_status"
   echo "$rcode"
   echo "$rmessage"
   echo "$content_type"
@@ -290,7 +296,7 @@ function Tweet_authorize {
     return 0
   fi
 
-  typeset rcode= rmessage= content_type= body=
+  typeset cert_status= rcode= rmessage= content_type= body=
 
   echo "No OAuth access token and/or secret for Twitter access configured."
   echo "I'll open Twitter site by a WWW browser to get OAuth access token"
@@ -300,6 +306,7 @@ function Tweet_authorize {
   read
 
   {
+    IFS= read -r cert_status
     IFS= read -r rcode
     IFS= read -r rmessage
     IFS= read -r content_type
@@ -316,6 +323,10 @@ function Tweet_authorize {
       "$Tweet_api_url_request_token" \
     |HTTP_request \
   )
+  if [[ $cert_status != 'verified' ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
   if [[ $rcode != 200 ]]; then
     ## FIXME: Print error message
     return 1
@@ -331,6 +342,7 @@ function Tweet_authorize {
   read -r pin
 
   {
+    IFS= read -r cert_status
     IFS= read -r rcode
     IFS= read -r rmessage
     IFS= read -r content_type
@@ -348,6 +360,10 @@ function Tweet_authorize {
       "oauth_verifier=$pin" \
     |HTTP_request \
   )
+  if [[ $cert_status != 'verified' ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
   if [[ $rcode != 200 ]]; then
     ## FIXME: Print error message
     return 1
