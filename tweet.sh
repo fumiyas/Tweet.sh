@@ -18,6 +18,7 @@ set -u
 
 if [[ -n ${ZSH_VERSION-} ]]; then
   setopt BSD_ECHO
+  setopt KSH_GLOB
 elif [[ -n ${BASH_VERSION-} ]]; then
   shopt -u xpg_echo
 else ## ksh
@@ -28,7 +29,6 @@ fi
 
 Tweet_conf_file="${TWEET_CONF-$HOME/.tweet.conf}"
 Tweet_api_host="api.twitter.com"
-Tweet_api_port="443"
 Tweet_api_url="https://$Tweet_api_host/1.1"
 Tweet_api_url_request_token="https://$Tweet_api_host/oauth/request_token"
 Tweet_api_url_authorize_token="https://$Tweet_api_host/oauth/authorize"
@@ -127,7 +127,22 @@ function HTTP_pdecode {
   printf "${in//\%/\\x}"
 }
 
-function HTTP_request {
+function HTTPS_request {
+  typeset url="$1"; shift
+  typeset method="$1"; shift
+
+  typeset url_tmp
+  typeset url_scheme="${url%%://*}"
+  url_tmp="${url#*://}"
+  typeset url_path="/${url_tmp#*/}"
+  url_tmp="${url_tmp%%/*}"
+  typeset url_host="${url_tmp%%:*}"
+  if [[ $url_tmp == @(*:*) ]]; then
+    typeset url_port="${url_tmp#*:}"
+  else
+    typeset url_port='443'
+  fi
+
   typeset line
   typeset -l line_lower
   typeset cert_status= http_ver= rcode= rmessage= content_type= body=
@@ -157,10 +172,28 @@ function HTTP_request {
     done
     body+="$line"
   } < <(
-    openssl s_client \
+    {
+      echo "$method $url_path HTTP/1.1"
+      echo "Host: $url_host"
+      echo "Connection: close"
+      if [[ $method == 'POST' ]]; then
+	echo 'Content-Type: application/x-www-form-urlencoded'
+      fi
+      while [[ $# -gt 0 ]]; do
+	[[ $1 == '--' ]] && { shift; break; }
+	echo "$1"
+	shift
+      done
+      typeset query="${1-}"
+      typeset LC_ALL='C'
+      echo "Content-Length: ${#query}"
+      echo
+      echo -n "$query"
+    } \
+    |openssl s_client \
       -crlf \
       -quiet \
-      -connect "$Tweet_api_host:$Tweet_api_port" \
+      -connect "$url_host:$url_port" \
       2>&1 \
       ;
   )
@@ -212,8 +245,8 @@ function OAuth_generate {
   typeset token="$1"; shift
   typeset token_secret="$1"; shift
   typeset callback="$1"; shift
-  typeset method="$1"; shift
   typeset url="$1"; shift
+  typeset method="$1"; shift
 
   typeset hmac_key="$consumer_secret&$token_secret"
   typeset -a oauth
@@ -226,13 +259,6 @@ function OAuth_generate {
     ${token:+"oauth_token=$token"}
     ${callback:+"oauth_callback=$callback"}
   )
-
-  typeset url_tmp
-  typeset url_scheme="${url%%://*}"
-  url_tmp="${url#*://}"
-  typeset url_path="/${url_tmp#*/}"
-  url_tmp="${url_tmp%%/*}"
-  typeset url_host="${url_tmp%%:*}"
 
   typeset oauth_string=$(
     echo -n "$method&"
@@ -262,16 +288,6 @@ function OAuth_generate {
     [[ $# -gt 1 ]] && query+='&'
     shift
   done
-  if [[ $method != 'POST' ]]; then
-    url="$url?$query"
-    query=''
-  fi
-
-  echo "$method $url_path HTTP/1.1"
-  echo "Host: $url_host"
-  if [[ $method == 'POST' ]]; then
-    echo 'Content-Type: application/x-www-form-urlencoded'
-  fi
 
   echo Authorization: OAuth${realm:+ realm=$realm,}
   typeset pv
@@ -279,12 +295,6 @@ function OAuth_generate {
     echo " $pv,"
   done
   echo " oauth_signature=$oauth_signature"
-  echo "Connection: close"
-
-  typeset LC_ALL='C'
-  echo "Content-Length: ${#query}"
-  echo
-  echo -n "$query"
 }
 
 function Tweet_init {
@@ -305,13 +315,7 @@ function Tweet_authorize {
   echo "Press Enter key to open Twitter site..."
   read
 
-  {
-    IFS= read -r cert_status
-    IFS= read -r rcode
-    IFS= read -r rmessage
-    IFS= read -r content_type
-    IFS= read -r body
-  } < <(
+  typeset oauth=$(
     OAuth_generate \
       "$Tweet_api_url" \
       "$Tweet_oauth_consumer_key" \
@@ -319,9 +323,23 @@ function Tweet_authorize {
       '' \
       '' \
       '' \
-      "POST" \
       "$Tweet_api_url_request_token" \
-    |HTTP_request \
+      "POST" \
+      ;
+  )
+
+  {
+    IFS= read -r cert_status
+    IFS= read -r rcode
+    IFS= read -r rmessage
+    IFS= read -r content_type
+    IFS= read -r body
+  } < <(
+    HTTPS_request \
+      "$Tweet_api_url_request_token" \
+      "POST" \
+      "$oauth" \
+      ;
   )
   if [[ $cert_status != 'verified' ]]; then
     ## FIXME: Print error message
@@ -341,13 +359,7 @@ function Tweet_authorize {
   typeset pin=
   read -r pin
 
-  {
-    IFS= read -r cert_status
-    IFS= read -r rcode
-    IFS= read -r rmessage
-    IFS= read -r content_type
-    IFS= read -r body
-  } < <(
+  typeset oauth=$(
     OAuth_generate \
       "$Tweet_api_url" \
       "$Tweet_oauth_consumer_key" \
@@ -355,10 +367,26 @@ function Tweet_authorize {
       "$oauth_token" \
       "$oauth_token_secret" \
       '' \
-      "POST" \
       "$Tweet_api_url_access_token" \
+      "POST" \
       "oauth_verifier=$pin" \
-    |HTTP_request \
+      ;
+  )
+
+  {
+    IFS= read -r cert_status
+    IFS= read -r rcode
+    IFS= read -r rmessage
+    IFS= read -r content_type
+    IFS= read -r body
+  } < <(
+    HTTPS_request \
+      "$Tweet_api_url_access_token" \
+      "POST" \
+      "$oauth" \
+      -- \
+      "oauth_verifier=$pin" \
+      ;
   )
   if [[ $cert_status != 'verified' ]]; then
     ## FIXME: Print error message
@@ -391,17 +419,45 @@ function Tweet_tweet {
     return 1
   fi
 
-  OAuth_generate \
-    "$Tweet_api_url" \
-    "$Tweet_oauth_consumer_key" \
-    "$Tweet_oauth_consumer_secret" \
-    "$Tweet_oauth_access_token" \
-    "$Tweet_oauth_access_token_secret" \
-    '' \
-    "POST" \
-    "$Tweet_api_url/statuses/update.json" \
-    "status=$(HTTP_pencode "$script")" \
-    ;
+  typeset query="status=$(HTTP_pencode "$script")"
+
+  typeset oauth=$(
+    OAuth_generate \
+      "$Tweet_api_url" \
+      "$Tweet_oauth_consumer_key" \
+      "$Tweet_oauth_consumer_secret" \
+      "$Tweet_oauth_access_token" \
+      "$Tweet_oauth_access_token_secret" \
+      '' \
+      "$Tweet_api_url/statuses/update.json" \
+      "POST" \
+      "$query" \
+      ;
+  )
+
+  {
+    IFS= read -r cert_status
+    IFS= read -r rcode
+    IFS= read -r rmessage
+    IFS= read -r content_type
+    IFS= read -r body
+  } < <(
+    HTTPS_request \
+      "$Tweet_api_url/statuses/update.json" \
+      "POST" \
+      "$oauth" \
+      -- \
+      "$query" \
+      ;
+  )
+  if [[ $cert_status != 'verified' ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
+  if [[ $rcode != 200 ]]; then
+    ## FIXME: Print error message
+    return 1
+  fi
 }
 
 function Tweet_command_help {
@@ -428,7 +484,7 @@ function Tweet_command {
   fi
 
   Tweet_authorize
-  Tweet_tweet "$@" |openssl s_client -crlf -quiet -connect "$Tweet_api_host:$Tweet_api_port"
+  Tweet_tweet "$@"
   ## FIXME: Parse reply from Twitter.com
   return $?
 }
