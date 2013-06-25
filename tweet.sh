@@ -19,6 +19,7 @@ set -u
 if [[ -n ${ZSH_VERSION-} ]]; then
   setopt BSD_ECHO
   setopt KSH_GLOB
+  setopt TYPESET_SILENT
 elif [[ -n ${BASH_VERSION-} ]]; then
   shopt -u xpg_echo
 else ## ksh
@@ -39,6 +40,10 @@ Tweet_oauth_access_token=''
 Tweet_oauth_access_token_secret=''
 Tweet_c_cr="
 "
+
+Tweet_error() {
+  echo "$0: ERROR: $1" 1>&2
+}
 
 function HTTP_browser {
   typeset url="$1"; shift
@@ -93,7 +98,6 @@ function HTTP_browser {
   return $?
 }
 
-
 function HTTP_pencode {
   if [[ -n ${1+set} ]]; then
     typeset in="${1-}"; shift
@@ -103,7 +107,7 @@ function HTTP_pencode {
   fi
 
   typeset LC_ALL='C'
-  typeset out
+  typeset out=
   typeset char
   while [[ -n "$in" ]]; do
     char="${in:0:1}"
@@ -198,11 +202,22 @@ function HTTPS_request {
       ;
   )
 
-  echo "$cert_status"
-  echo "$rcode"
-  echo "$rmessage"
+  typeset ret='0'
+
+  if [[ $cert_status != 'verified' ]]; then
+    rcode='500'
+    rmessage='Invalid server certificate'
+    ret='1'
+  elif [[ $rcode != 200 ]]; then
+    ret='1'
+  fi
+
+  echo "$rcode $rmessage"
   echo "$content_type"
+  echo
   echo -n "$body"
+
+  return "$ret"
 }
 
 function HTTP_response_extract {
@@ -306,8 +321,6 @@ function Tweet_authorize {
     return 0
   fi
 
-  typeset cert_status= rcode= rmessage= content_type= body=
-
   echo "No OAuth access token and/or secret for Twitter access configured."
   echo "I'll open Twitter site by a WWW browser to get OAuth access token"
   echo "and secret. Please authorize this application on Twitter site!!"
@@ -328,28 +341,21 @@ function Tweet_authorize {
       ;
   )
 
-  {
-    IFS= read -r cert_status
-    IFS= read -r rcode
-    IFS= read -r rmessage
-    IFS= read -r content_type
-    IFS= read -r body
-  } < <(
+  typeset response
+  response=$(
     HTTPS_request \
       "$Tweet_api_url_request_token" \
       "POST" \
       "$oauth" \
-      ;
+     ;
   )
-  if [[ $cert_status != 'verified' ]]; then
-    ## FIXME: Print error message
-    return 1
-  fi
-  if [[ $rcode != 200 ]]; then
-    ## FIXME: Print error message
+  typeset ret="$?"
+  if [[ $ret -ne 0 ]]; then
+    Tweet_error "OAuth request token failed: ${response%%$Tweet_c_cr*}"
     return 1
   fi
 
+  typeset body="${response#*$Tweet_c_cr$Tweet_c_cr}"
   typeset oauth_token=$(HTTP_response_extract "$body" oauth_token)
   typeset oauth_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
 
@@ -373,13 +379,8 @@ function Tweet_authorize {
       ;
   )
 
-  {
-    IFS= read -r cert_status
-    IFS= read -r rcode
-    IFS= read -r rmessage
-    IFS= read -r content_type
-    IFS= read -r body
-  } < <(
+  typeset response
+  response=$(
     HTTPS_request \
       "$Tweet_api_url_access_token" \
       "POST" \
@@ -388,15 +389,13 @@ function Tweet_authorize {
       "oauth_verifier=$pin" \
       ;
   )
-  if [[ $cert_status != 'verified' ]]; then
-    ## FIXME: Print error message
-    return 1
-  fi
-  if [[ $rcode != 200 ]]; then
-    ## FIXME: Print error message
+  typeset ret="$?"
+  if [[ $ret -ne 0 ]]; then
+    Tweet_error "OAuth access token failed: ${response%%$Tweet_c_cr*}"
     return 1
   fi
 
+  typeset body="${response#*$Tweet_c_cr$Tweet_c_cr}"
   Tweet_oauth_access_token=$(HTTP_response_extract "$body" oauth_token)
   Tweet_oauth_access_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
 
@@ -435,13 +434,8 @@ function Tweet_tweet {
       ;
   )
 
-  {
-    IFS= read -r cert_status
-    IFS= read -r rcode
-    IFS= read -r rmessage
-    IFS= read -r content_type
-    IFS= read -r body
-  } < <(
+  typeset response
+  response=$(
     HTTPS_request \
       "$Tweet_api_url/statuses/update.json" \
       "POST" \
@@ -450,14 +444,13 @@ function Tweet_tweet {
       "$query" \
       ;
   )
-  if [[ $cert_status != 'verified' ]]; then
-    ## FIXME: Print error message
+  typeset ret="$?"
+  if [[ $ret -ne 0 ]]; then
+    Tweet_error "Tweet failed: ${response%%$Tweet_c_cr*}"
     return 1
   fi
-  if [[ $rcode != 200 ]]; then
-    ## FIXME: Print error message
-    return 1
-  fi
+
+  typeset body="${response#*$Tweet_c_cr$Tweet_c_cr}"
 }
 
 function Tweet_command_help {
