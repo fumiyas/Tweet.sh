@@ -34,8 +34,8 @@ Tweet_api_url="https://$Tweet_api_host/1.1"
 Tweet_api_url_request_token="https://$Tweet_api_host/oauth/request_token"
 Tweet_api_url_authorize_token="https://$Tweet_api_host/oauth/authorize"
 Tweet_api_url_access_token="https://$Tweet_api_host/oauth/access_token"
-Tweet_oauth_consumer_key='RSwbFF0fObZEJMoZLK51w'
-Tweet_oauth_consumer_secret='1oxAO6md2ls4FSXhHBnosMD8crNyYZgdzUHlZvNlaU'
+Tweet_oauth_consumer_key='C7IpNPso1IYdCweXYaJ0Q'
+Tweet_oauth_consumer_secret='LAsLscqNC4kBaDW8EtmxMIVCkY8nsw07NaN5PNBYuY'
 Tweet_oauth_access_token=''
 Tweet_oauth_access_token_secret=''
 Tweet_c_cr="
@@ -275,7 +275,8 @@ function OAuth_generate {
     ${callback:+"oauth_callback=$callback"}
   )
 
-  typeset oauth_string=$(
+  typeset oauth_string
+  oauth_string=$(
     echo -n "$method&"
     HTTP_pencode "$url"
     echo -n '&'
@@ -289,7 +290,8 @@ function OAuth_generate {
     |sed 's/%26$//' \
     ;
   )
-  typeset oauth_signature=$(
+  typeset oauth_signature
+  oauth_signature=$(
     echo -n "$oauth_string" \
     |openssl sha1 -hmac "$hmac_key" -binary \
     |openssl base64 \
@@ -304,7 +306,7 @@ function OAuth_generate {
     shift
   done
 
-  echo Authorization: OAuth${realm:+ realm=$realm,}
+  echo "Authorization: OAuth${realm:+ realm=$realm,}"
   typeset pv
   for pv in "${oauth[@]}"; do
     echo " $pv,"
@@ -328,7 +330,8 @@ function Tweet_authorize {
   echo "Press Enter key to open Twitter site..."
   read
 
-  typeset oauth=$(
+  typeset oauth
+  oauth=$(
     OAuth_generate \
       "$Tweet_api_url" \
       "$Tweet_oauth_consumer_key" \
@@ -365,7 +368,8 @@ function Tweet_authorize {
   typeset pin=
   read -r pin
 
-  typeset oauth=$(
+  typeset oauth
+  oauth=$(
     OAuth_generate \
       "$Tweet_api_url" \
       "$Tweet_oauth_consumer_key" \
@@ -418,9 +422,11 @@ function Tweet_tweet {
     return 1
   fi
 
-  typeset query="status=$(HTTP_pencode "$script")"
+  typeset query
+  query="status=$(HTTP_pencode "$script")"
 
-  typeset oauth=$(
+  typeset oauth
+  oauth=$(
     OAuth_generate \
       "$Tweet_api_url" \
       "$Tweet_oauth_consumer_key" \
@@ -476,8 +482,7 @@ function Tweet_command {
     Tweet_oauth_access_token_secret="$oauth_access_token_secret"
   fi
 
-  Tweet_authorize
-  Tweet_tweet "$@"
+  Tweet_authorize && Tweet_tweet "$@"
   ## FIXME: Parse reply from Twitter.com
   return $?
 }
