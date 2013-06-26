@@ -16,6 +16,9 @@ Requirements
 
   * bash(1), ksh(1) or zsh(1)
   * openssl(1)
+  * sed(1)
+  * sort(1)
+  * tr(1)
 
 How to build and install
 ---------------------------------------------------------------------
