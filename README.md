@@ -11,6 +11,12 @@ What's this?
 
 A Twitter client implemented in bash/ksh/zsh.
 
+Requirements
+---------------------------------------------------------------------
+
+  * bash(1), ksh(1) or zsh(1)
+  * openssl(1)
+
 How to build and install
 ---------------------------------------------------------------------
 
