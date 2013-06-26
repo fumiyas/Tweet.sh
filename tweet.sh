@@ -463,13 +463,16 @@ function Tweet_tweet {
 }
 
 function Tweet_command_help {
-  if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 SCRIPT"
-    exit 0
-  fi
+  echo "Usage: $0 SCRIPT"
+  exit 0
 }
 
 function Tweet_command {
+  if [[ $# -ne 1 ]]; then
+    Tweet_command_help
+    exit 0
+  fi
+
   . "$Tweet_conf_file" || exit 1
 
   if [[ -n ${oauth_consumer_key-} ]]; then
