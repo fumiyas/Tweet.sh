@@ -16,18 +16,7 @@
 
 set -u
 
-if [[ -n ${ZSH_VERSION-} ]]; then
-  setopt BSD_ECHO
-  setopt KSH_GLOB
-  setopt TYPESET_SILENT
-elif [[ -n ${BASH_VERSION-} ]]; then
-  shopt -u xpg_echo
-else ## ksh
-  if [[ $(echo -n) == -n ]]; then
-    alias echo='print -r'
-  fi
-fi
-
+Tweet_lang=''
 Tweet_conf_file="${TWEET_CONF-$HOME/.tweet.conf}"
 Tweet_api_host="api.twitter.com"
 Tweet_api_url="https://$Tweet_api_host/1.1"
@@ -315,8 +304,40 @@ function OAuth_generate {
   echo " oauth_signature=$oauth_signature"
 }
 
+function Tweet_string_length {
+  typeset LC_ALL="$Tweet_lang"
+  echo "${#1}"
+}
+
 function Tweet_init {
-  :
+  if [[ -n ${ZSH_VERSION-} ]]; then
+    setopt BSD_ECHO
+    setopt KSH_GLOB
+    setopt TYPESET_SILENT
+  elif [[ -n ${BASH_VERSION-} ]]; then
+    shopt -u xpg_echo
+  else ## ksh
+    if [[ $(echo -n) == -n ]]; then
+      alias echo='print -r'
+    fi
+  fi
+
+  typeset lang_orig="${LANG-}"
+  typeset locale lang_ja lang
+  if [[ ${lang_orig#*.} != @(UTF-8|utf-8|UTF8|utf8) ]]; then
+    if type locale >/dev/null 2>&1; then
+      while read -r locale; do
+	if [[ ${locale#*.} == @(UTF-8|utf-8|UTF8|utf8) ]]; then
+	  if [[ ${locale%.*} == ja_JP ]]; then
+	    lang_ja="$locale"
+	  else
+	    lang="$locale"
+	  fi
+	fi
+      done < <(locale -a)
+    fi
+  fi
+  Tweet_lang="${lang_ja-${lang-ja_JP.UTF-8}}"
 }
 
 function Tweet_authorize {
@@ -424,8 +445,9 @@ function Tweet_authorize {
 function Tweet_tweet {
   typeset script="$1"; shift
 
-  if [[ ${#script} -gt $Tweet_script_limit ]]; then
-    Tweet_error "Script too long (>$Tweet_script_limit): ${#script}"
+  typeset script_len=$(Tweet_string_length "$script")
+  if [[ $script_len -gt $Tweet_script_limit ]]; then
+    Tweet_error "Script too long (>$Tweet_script_limit): $script_len"
     return 1
   fi
 
