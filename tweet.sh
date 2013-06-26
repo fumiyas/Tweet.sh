@@ -324,11 +324,14 @@ function Tweet_authorize {
   fi
 
   echo "No OAuth access token and/or secret for Twitter access configured."
-  echo "I'll open Twitter site by a WWW browser to get OAuth access token"
-  echo "and secret. Please authorize this application on Twitter site!!"
   echo
-  echo "Press Enter key to open Twitter site..."
+  echo "I'll open Twitter site by a WWW browser to get OAuth access token"
+  echo "and secret. Please authorize this application and get a PIN code"
+  echo "on Twitter site."
+  echo
+  echo -n "Press Enter key to open Twitter site..."
   read
+  echo
 
   typeset oauth
   oauth=$(
@@ -350,7 +353,7 @@ function Tweet_authorize {
       "$Tweet_api_url_request_token" \
       "POST" \
       "$oauth" \
-     ;
+      ;
   )
   typeset ret="$?"
   if [[ $ret -ne 0 ]]; then
@@ -364,7 +367,7 @@ function Tweet_authorize {
 
   HTTP_browser "$Tweet_api_url_authorize_token?oauth_token=$oauth_token"
 
-  echo -n 'Enter PIN: '
+  echo -n 'Enter PIN code: '
   typeset pin=
   read -r pin
 
