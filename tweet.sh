@@ -38,11 +38,12 @@ Tweet_oauth_consumer_key='C7IpNPso1IYdCweXYaJ0Q'
 Tweet_oauth_consumer_secret='LAsLscqNC4kBaDW8EtmxMIVCkY8nsw07NaN5PNBYuY'
 Tweet_oauth_access_token=''
 Tweet_oauth_access_token_secret=''
+Tweet_script_limit='140'
 Tweet_c_cr="
 "
 
-Tweet_error() {
-  echo "$0: ERROR: $1" 1>&2
+function Tweet_error {
+  echo "${Tweet_command_name-Tweet}: ERROR: $1" 1>&2
 }
 
 function HTTP_browser {
@@ -423,8 +424,8 @@ function Tweet_authorize {
 function Tweet_tweet {
   typeset script="$1"; shift
 
-  if [[ ${#script} -gt 140 ]]; then
-    ## FIXME: Print error message
+  if [[ ${#script} -gt $Tweet_script_limit ]]; then
+    Tweet_error "Script too long (>$Tweet_script_limit): ${#script}"
     return 1
   fi
 
@@ -497,6 +498,7 @@ function Tweet_command {
 }
 
 if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
+  Tweet_command_name="$0"
   Tweet_init
   Tweet_command "$@"
   exit $?
