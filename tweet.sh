@@ -370,6 +370,7 @@ function Tweet_authorize {
   echo -n 'Enter PIN code: '
   typeset pin=
   read -r pin
+  echo
 
   typeset oauth
   oauth=$(
@@ -407,10 +408,12 @@ function Tweet_authorize {
   Tweet_oauth_access_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
 
   if [[ ! -f "$Tweet_conf_file" ]]; then
+    echo "Saving OAuth consumer key and secret into $Tweet_conf_file..."
     (umask 0077; touch "$Tweet_conf_file") || return 1
     echo "oauth_consumer_key='$Tweet_oauth_consumer_key'" >>"$Tweet_conf_file"
     echo "oauth_consumer_secret='$Tweet_oauth_consumer_secret'" >>"$Tweet_conf_file"
   fi
+  echo "Saving OAuth access token and secret into $Tweet_conf_file..."
   echo "oauth_access_token='$Tweet_oauth_access_token'" >>"$Tweet_conf_file"
   echo "oauth_access_token_secret='$Tweet_oauth_access_token_secret'" >>"$Tweet_conf_file"
 
