@@ -185,6 +185,7 @@ function HTTPS_request {
       echo -n "$query"
     } \
     |openssl s_client \
+      -no_ssl2 \
       -crlf \
       -quiet \
       -connect "$url_host:$url_port" \
