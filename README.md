@@ -14,7 +14,7 @@ A Twitter client implemented in bash/ksh/zsh.
 Requirements
 ---------------------------------------------------------------------
 
-  * `bash`(1), ksh`(1) or `zsh`(1)
+  * `bash`(1), `ksh`(1) or `zsh`(1)
   * `openssl`(1)
   * `sed`(1)
   * `sort`(1)
