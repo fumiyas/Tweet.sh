@@ -503,7 +503,9 @@ function Tweet_command {
     exit 0
   fi
 
-  . "$Tweet_conf_file" || exit 1
+  if [[ -f "$Tweet_conf_file" ]]; then
+    . "$Tweet_conf_file" || exit 1
+  fi
 
   if [[ -n ${oauth_consumer_key-} ]]; then
     Tweet_oauth_consumer_key="$oauth_consumer_key"
