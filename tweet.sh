@@ -14,25 +14,28 @@
 ##   * openssl(1)
 ##
 
-set -u
+if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
+  set -u
+fi
 
-Tweet_lang=''
-Tweet_conf_file="${TWEET_CONF-$HOME/.tweet.conf}"
-Tweet_api_host="api.twitter.com"
-Tweet_api_url="https://$Tweet_api_host/1.1"
-Tweet_api_url_request_token="https://$Tweet_api_host/oauth/request_token"
-Tweet_api_url_authorize_token="https://$Tweet_api_host/oauth/authorize"
-Tweet_api_url_access_token="https://$Tweet_api_host/oauth/access_token"
-Tweet_oauth_consumer_key='C7IpNPso1IYdCweXYaJ0Q'
-Tweet_oauth_consumer_secret='LAsLscqNC4kBaDW8EtmxMIVCkY8nsw07NaN5PNBYuY'
-Tweet_oauth_access_token=''
-Tweet_oauth_access_token_secret=''
-Tweet_script_limit='140'
-Tweet_c_cr="
-"
+typeset Tweet_arg0="$0"
+typeset Tweet_lang=''
+typeset Tweet_conf_file="${TWEET_CONF-$HOME/.tweet.conf}"
+typeset Tweet_api_host="api.twitter.com"
+typeset Tweet_api_url="https://$Tweet_api_host/1.1"
+typeset Tweet_api_url_request_token="https://$Tweet_api_host/oauth/request_token"
+typeset Tweet_api_url_authorize_token="https://$Tweet_api_host/oauth/authorize"
+typeset Tweet_api_url_access_token="https://$Tweet_api_host/oauth/access_token"
+typeset Tweet_oauth_consumer_key='C7IpNPso1IYdCweXYaJ0Q'
+typeset Tweet_oauth_consumer_secret='LAsLscqNC4kBaDW8EtmxMIVCkY8nsw07NaN5PNBYuY'
+typeset Tweet_oauth_access_token=''
+typeset Tweet_oauth_access_token_secret=''
+typeset Tweet_script_limit='140'
+typeset Tweet_c_cr='
+'
 
 function Tweet_error {
-  echo "${Tweet_command_name-Tweet}: ERROR: $1" 1>&2
+  echo "${Tweet_arg0##*/}: ERROR: $1" 1>&2
 }
 
 function HTTP_browser {
@@ -521,7 +524,6 @@ function Tweet_command {
 }
 
 if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
-  Tweet_command_name="$0"
   Tweet_init
   Tweet_command "$@"
   exit $?
