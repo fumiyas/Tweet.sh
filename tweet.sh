@@ -31,7 +31,7 @@ typeset Tweet_oauth_consumer_secret='LAsLscqNC4kBaDW8EtmxMIVCkY8nsw07NaN5PNBYuY'
 typeset Tweet_oauth_access_token=''
 typeset Tweet_oauth_access_token_secret=''
 typeset Tweet_script_limit='140'
-typeset Tweet_c_cr='
+typeset Tweet_c_lf='
 '
 
 function Tweet_error {
@@ -165,7 +165,7 @@ function HTTPS_request {
       esac
     done
     while IFS= read -r line; do
-      body+="$line$Tweet_c_cr"
+      body+="$line$Tweet_c_lf"
     done
     body+="$line"
   } < <(
@@ -383,11 +383,11 @@ function Tweet_authorize {
   )
   typeset ret="$?"
   if [[ $ret -ne 0 ]]; then
-    Tweet_error "OAuth request token failed: ${response%%$Tweet_c_cr*}"
+    Tweet_error "OAuth request token failed: ${response%%$Tweet_c_lf*}"
     return 1
   fi
 
-  typeset body="${response#*$Tweet_c_cr$Tweet_c_cr}"
+  typeset body="${response#*$Tweet_c_lf$Tweet_c_lf}"
   typeset oauth_token=$(HTTP_response_extract "$body" oauth_token)
   typeset oauth_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
 
@@ -425,11 +425,11 @@ function Tweet_authorize {
   )
   typeset ret="$?"
   if [[ $ret -ne 0 ]]; then
-    Tweet_error "OAuth access token failed: ${response%%$Tweet_c_cr*}"
+    Tweet_error "OAuth access token failed: ${response%%$Tweet_c_lf*}"
     return 1
   fi
 
-  typeset body="${response#*$Tweet_c_cr$Tweet_c_cr}"
+  typeset body="${response#*$Tweet_c_lf$Tweet_c_lf}"
   Tweet_oauth_access_token=$(HTTP_response_extract "$body" oauth_token)
   Tweet_oauth_access_token_secret=$(HTTP_response_extract "$body" oauth_token_secret)
 
@@ -485,11 +485,11 @@ function Tweet_tweet {
   )
   typeset ret="$?"
   if [[ $ret -ne 0 ]]; then
-    Tweet_error "Tweet failed: ${response%%$Tweet_c_cr*}"
+    Tweet_error "Tweet failed: ${response%%$Tweet_c_lf*}"
     return 1
   fi
 
-  typeset body="${response#*$Tweet_c_cr$Tweet_c_cr}"
+  typeset body="${response#*$Tweet_c_lf$Tweet_c_lf}"
 }
 
 function Tweet_command_help {
