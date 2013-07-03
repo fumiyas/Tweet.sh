@@ -498,7 +498,21 @@ function Tweet_command_help {
 }
 
 function Tweet_command {
-  if [[ $# -ne 1 ]]; then
+  typeset script
+
+  if [[ $# -eq 0 ]]; then
+    if [[ -t 0 ]]; then
+      echo 'Script to tweet:'
+    fi
+    typeset line
+    while IFS= read -r line; do
+      script+="$line$Tweet_c_lf"
+    done
+    script+="$line"
+    script="${script%$Tweet_c_lf}"
+  elif [[ $# -eq 1 ]]; then
+    script="$1"; shift
+  else
     Tweet_command_help
     exit 0
   fi
@@ -520,7 +534,7 @@ function Tweet_command {
     Tweet_oauth_access_token_secret="$oauth_access_token_secret"
   fi
 
-  Tweet_authorize && Tweet_tweet "$@"
+  Tweet_authorize && Tweet_tweet "$script"
   ## FIXME: Parse reply from Twitter.com
   return $?
 }
