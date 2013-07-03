@@ -52,9 +52,21 @@ Then you must login to Twitter, authorize `tweet` command (shown as
     Saving OAuth consumer key and secret into /home/you/.tweet.conf...
     Saving OAuth access token and secret into /home/you/.tweet.conf...
 
-Finally, you can use `tweet` command without the above procedure.
+Finally, you can use `tweet` command without the above procedure:
 
     $ /usr/local/bin/tweet 'はろーあろーん'
+
+If no argument given, enter script to tweet:
+
+    $ /usr/local/bin/tweet
+    Script to tweet:
+    やっはろー
+    はろーあろーん
+    ^D
+
+Or:
+
+    $ echo 'はっやろー' |/usr/local/bin/tweet
 
 Enjoy!
 
