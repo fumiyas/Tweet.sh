@@ -2,7 +2,7 @@
 ## vim:tabstop=8:shiftwidth=2
 ##
 ## Twitter client implemented in bash/ksh/zsh with openssl(1)
-## Copyright (C) 2013 SATOH Fumiyasu @ OSS Technology Corp., Japan
+## Copyright (C) 2013-2016 SATOH Fumiyasu @ OSS Technology Corp., Japan
 ##               <https://GitHub.com/fumiyas/Tweet.sh>
 ##               <https://Twitter.com/satoh_fumiyasu>
 ##               <http://www.OSSTech.co.jp/>
