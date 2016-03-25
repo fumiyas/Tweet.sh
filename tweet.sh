@@ -14,7 +14,11 @@
 ##   * openssl(1)
 ##
 
-if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
+if
+  [[ -n ${BASH_VERSION+set} && ${0##*/} == "${BASH_SOURCE##*/}" ]] ||
+  [[ -n ${ZSH_VERSION+set} && $zsh_eval_context == toplevel ]] ||
+  [[ -z ${BASH_VERSION+set}${ZSH_VERSION+set} && ${0##*/} == "${.sh.file##*/}" ]]
+then
   set -u
 fi
 
@@ -540,7 +544,11 @@ function Tweet_command {
   return $?
 }
 
-if [[ ${0##*/} == tweet ]] && [[ ${zsh_eval_context-toplevel} == toplevel ]]; then
+if
+  [[ -n ${BASH_VERSION+set} && ${0##*/} == "${BASH_SOURCE##*/}" ]] ||
+  [[ -n ${ZSH_VERSION+set} && $zsh_eval_context == toplevel ]] ||
+  [[ -z ${BASH_VERSION+set}${ZSH_VERSION+set} && ${0##*/} == "${.sh.file##*/}" ]]
+then
   Tweet_init
   Tweet_command "$@"
   exit $?
